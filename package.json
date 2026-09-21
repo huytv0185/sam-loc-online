@@ -1,0 +1,17 @@
+{
+  "name": "sam-loc-online",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Sam Loc (mien Bac) - choi bai online nhieu nguoi qua link",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "socket.io": "^4.7.5"
+  }
+}

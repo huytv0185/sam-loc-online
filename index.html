@@ -1,0 +1,580 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Sâm Lốc Online</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&family=Fraunces:opsz,wght@9..144,500;9..144,700&display=swap">
+<style>
+  :root{
+    --felt-1:#0b4531;
+    --felt-2:#0e5a3f;
+    --felt-line:rgba(255,255,255,.08);
+    --gold:#d8b46a;
+    --gold-bright:#f0cf8a;
+    --ink:#f4ecd8;
+    --ink-dim:#c9d8cd;
+    --card-bg:#fbf8f0;
+    --card-ink:#1a1a1a;
+    --red:#b3312c;
+    --panel:#0a3a29;
+    --panel-line:rgba(216,180,106,.25);
+    --danger:#e46a5e;
+    --ok:#7fd99a;
+    --radius:14px;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{
+    margin:0;
+    background:
+      radial-gradient(120% 90% at 50% -10%, var(--felt-2), var(--felt-1) 60%);
+    color:var(--ink);
+    font-family:"Be Vietnam Pro", system-ui, -apple-system, sans-serif;
+    min-height:100%;
+    padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom));
+  }
+  h1,h2,h3{font-family:"Fraunces", Georgia, serif; margin:0 0 4px; text-wrap:balance;}
+  .wrap{max-width:640px;margin:0 auto;}
+  .brand{display:flex;align-items:center;gap:10px;margin-bottom:18px;}
+  .brand .mark{width:34px;height:34px;border-radius:9px;background:linear-gradient(160deg,var(--gold-bright),var(--gold));display:flex;align-items:center;justify-content:center;color:#3a2a0c;font-weight:800;font-size:15px;font-family:"Fraunces",serif;}
+  .brand h1{font-size:20px;color:var(--gold-bright);letter-spacing:.2px;}
+  .brand .sub{font-size:12px;color:var(--ink-dim);}
+
+  .card-panel{
+    background:linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.02));
+    border:1px solid var(--panel-line);
+    border-radius:var(--radius);
+    padding:18px;
+    margin-bottom:14px;
+  }
+  label{display:block;font-size:12px;color:var(--ink-dim);margin-bottom:6px;text-transform:uppercase;letter-spacing:.06em;}
+  input[type=text]{
+    width:100%;padding:11px 12px;border-radius:10px;border:1px solid var(--panel-line);
+    background:rgba(0,0,0,.2); color:var(--ink); font-size:16px; font-family:inherit;
+  }
+  input[type=text]:focus{outline:2px solid var(--gold);}
+  .row{display:flex; gap:10px; flex-wrap:wrap;}
+  .row > *{flex:1;}
+  button{
+    font-family:inherit; font-size:14px; font-weight:600; cursor:pointer;
+    border-radius:10px; border:1px solid transparent; padding:11px 16px;
+    transition:transform .08s ease, filter .15s ease;
+  }
+  button:active{transform:scale(.97);}
+  button:disabled{opacity:.4;cursor:not-allowed;}
+  .btn-gold{background:linear-gradient(160deg,var(--gold-bright),var(--gold)); color:#3a2a0c;}
+  .btn-gold:hover:not(:disabled){filter:brightness(1.06);}
+  .btn-outline{background:transparent;border-color:var(--panel-line);color:var(--ink);}
+  .btn-outline:hover:not(:disabled){border-color:var(--gold);}
+  .btn-danger{background:transparent;border-color:var(--danger);color:var(--danger);}
+  .btn-sm{padding:7px 12px;font-size:12.5px;}
+  .muted{color:var(--ink-dim);font-size:13px;}
+  .center{text-align:center;}
+  [hidden]{display:none!important;}
+
+  .room-code{
+    font-family:"Fraunces",serif; font-size:34px; letter-spacing:.12em; color:var(--gold-bright);
+    text-align:center; margin:6px 0 2px;
+  }
+  .link-box{display:flex;gap:8px;margin-top:10px;}
+  .link-box input{flex:1;font-size:13px;}
+
+  .players{display:flex;flex-direction:column;gap:8px;margin-top:12px;}
+  .player-row{
+    display:flex; align-items:center; gap:10px; padding:9px 12px;
+    background:rgba(0,0,0,.18); border-radius:10px; border:1px solid var(--panel-line);
+  }
+  .seat-badge{width:26px;height:26px;border-radius:50%;background:var(--felt-2);border:1px solid var(--gold);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--gold-bright);flex-shrink:0;}
+  .player-row .name{font-weight:600;flex:1;}
+  .player-row .tag{font-size:11px;color:#3a2a0c;background:var(--gold-bright);padding:2px 7px;border-radius:20px;font-weight:700;}
+  .player-row.disconnected{opacity:.45;}
+  .player-row .dot{width:8px;height:8px;border-radius:50%;background:var(--ok);}
+  .player-row.disconnected .dot{background:var(--danger);}
+  .player-row .ledger{font-variant-numeric:tabular-nums;font-size:13px;font-weight:700;}
+  .ledger.pos{color:var(--ok);}
+  .ledger.neg{color:var(--danger);}
+  .ledger.zero{color:var(--ink-dim);}
+
+  .tier-options{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;}
+  .tier-btn{flex:1;min-width:70px;padding:10px 6px;border-radius:10px;border:1px solid var(--panel-line);background:rgba(0,0,0,.18);color:var(--ink);font-weight:700;text-align:center;cursor:pointer;font-variant-numeric:tabular-nums;}
+  .tier-btn.active{border-color:var(--gold);background:linear-gradient(160deg,var(--gold-bright),var(--gold));color:#3a2a0c;}
+
+  /* ==== bàn chơi ==== */
+  .table-felt{
+    background:radial-gradient(120% 100% at 50% 0%, var(--felt-2), var(--felt-1));
+    border:1px solid var(--panel-line); border-radius:18px; padding:16px; margin-bottom:12px;
+  }
+  .seats-strip{display:flex; gap:8px; overflow-x:auto; padding-bottom:6px; margin-bottom:12px;}
+  .seat-chip{
+    flex:0 0 auto; min-width:84px; padding:8px 10px; border-radius:12px;
+    background:rgba(0,0,0,.22); border:1px solid var(--panel-line); text-align:center;
+  }
+  .seat-chip.turn{border-color:var(--gold); box-shadow:0 0 0 1px var(--gold), 0 0 14px rgba(216,180,106,.35);}
+  .seat-chip .nm{font-size:12.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .seat-chip .cc{font-size:11px;color:var(--ink-dim);margin-top:2px;}
+
+  .table-area{min-height:96px; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:8px; margin-bottom:14px;}
+  .table-label{font-size:12px;color:var(--ink-dim);text-transform:uppercase;letter-spacing:.08em;}
+  .table-cards{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;}
+  .empty-table{color:var(--ink-dim);font-size:13px;font-style:italic;}
+
+  .hand-label{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;}
+  .hand-strip{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;min-height:96px;align-items:flex-end;}
+
+  .pcard{
+    width:52px;height:74px;border-radius:8px;background:var(--card-bg);color:var(--card-ink);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    font-weight:800;font-size:16px;box-shadow:0 2px 0 rgba(0,0,0,.25), 0 4px 10px rgba(0,0,0,.25);
+    border:1px solid rgba(0,0,0,.15); user-select:none; flex-shrink:0;
+  }
+  .pcard.red{color:var(--red);}
+  .pcard .suit{font-size:18px;line-height:1;}
+  .pcard.small{width:40px;height:58px;font-size:13px;}
+  .pcard.small .suit{font-size:14px;}
+  .hand-strip .pcard{cursor:pointer; transition:transform .12s ease, box-shadow .12s ease; border:2px solid transparent;}
+  .hand-strip .pcard.sel{transform:translateY(-12px); border-color:var(--gold); box-shadow:0 0 0 2px var(--gold-bright), 0 10px 16px rgba(0,0,0,.35);}
+
+  .action-bar{display:flex;gap:10px;margin-top:14px;}
+  .turn-banner{text-align:center;font-size:14px;margin-bottom:6px;color:var(--gold-bright);font-weight:700;min-height:20px;}
+
+  .overlay{
+    position:fixed; inset:0; background:rgba(4,20,14,.82); backdrop-filter:blur(2px);
+    display:flex; align-items:center; justify-content:center; padding:20px; z-index:50;
+  }
+  .overlay .box{
+    background:linear-gradient(180deg, var(--felt-2), var(--felt-1)); border:1px solid var(--gold);
+    border-radius:18px; padding:24px; max-width:420px; width:100%; max-height:85vh; overflow:auto;
+  }
+  .overlay h2{color:var(--gold-bright); text-align:center;}
+  .settle-row{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px dashed var(--panel-line);font-size:14px;}
+  .settle-row:last-child{border-bottom:none;}
+
+  .toast{
+    position:fixed; left:50%; bottom:22px; transform:translateX(-50%);
+    background:#2a1810; color:var(--ink); border:1px solid var(--danger); padding:10px 16px;
+    border-radius:10px; font-size:13.5px; z-index:100; max-width:90vw; text-align:center;
+  }
+
+  details.rules{margin-top:6px;}
+  details.rules summary{cursor:pointer;color:var(--gold-bright);font-size:13px;font-weight:600;}
+  details.rules .body{font-size:13px; color:var(--ink-dim); line-height:1.6; margin-top:8px;}
+  details.rules .body strong{color:var(--ink);}
+
+  .foot-note{font-size:11.5px;color:var(--ink-dim);text-align:center;margin-top:18px;line-height:1.5;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand">
+    <div class="mark">S</div>
+    <div>
+      <h1>Sâm Lốc Online</h1>
+      <div class="sub">Sâm miền Bắc · 2–5 người chơi</div>
+    </div>
+  </div>
+
+  <!-- ===== MÀN HÌNH VÀO PHÒNG ===== -->
+  <div id="screen-entry" class="card-panel">
+    <label for="in-name">Tên của bạn</label>
+    <input id="in-name" type="text" maxlength="20" placeholder="VD: Tú" />
+    <div class="row" style="margin-top:12px;">
+      <button id="btn-create" class="btn-gold">Tạo phòng mới</button>
+    </div>
+    <div class="muted center" style="margin:14px 0 8px;">— hoặc —</div>
+    <label for="in-code">Mã phòng bạn bè gửi</label>
+    <div class="row">
+      <input id="in-code" type="text" maxlength="6" placeholder="VD: 7K9QX" style="text-transform:uppercase;" />
+      <button id="btn-join" class="btn-outline">Vào phòng</button>
+    </div>
+    <div id="entry-error" class="muted" style="color:var(--danger);margin-top:8px;"></div>
+  </div>
+
+  <!-- ===== PHÒNG CHỜ ===== -->
+  <div id="screen-lobby" class="card-panel" hidden>
+    <div class="muted center">Mã phòng</div>
+    <div class="room-code" id="lobby-code">—</div>
+    <div class="link-box">
+      <input id="lobby-link" type="text" readonly />
+      <button id="btn-copy" class="btn-outline btn-sm">Copy link</button>
+    </div>
+
+    <div class="players" id="lobby-players"></div>
+
+    <div id="host-controls" hidden style="margin-top:16px;">
+      <label>Mức cược / lá</label>
+      <div class="tier-options" id="tier-options">
+        <div class="tier-btn" data-tier="5000">5K</div>
+        <div class="tier-btn" data-tier="10000">10K</div>
+        <div class="tier-btn" data-tier="20000">20K</div>
+      </div>
+      <div class="row" style="margin-bottom:14px;">
+        <input id="in-tier-custom" type="text" placeholder="Hoặc nhập số tuỳ ý (VNĐ/lá)" />
+      </div>
+      <button id="btn-start" class="btn-gold" style="width:100%;">Bắt đầu ván 1</button>
+      <div class="muted center" style="margin-top:8px;">Cần 2–5 người trong phòng mới bắt đầu được.</div>
+    </div>
+    <div id="guest-wait" class="muted center" style="margin-top:14px;">Đợi chủ phòng bắt đầu…</div>
+
+    <details class="rules">
+      <summary>Xem luật đang áp dụng trong ván này</summary>
+      <div class="body" id="rules-body"></div>
+    </details>
+  </div>
+
+  <!-- ===== BÀN CHƠI ===== -->
+  <div id="screen-game" hidden>
+    <div class="table-felt">
+      <div class="seats-strip" id="seats-strip"></div>
+      <div class="turn-banner" id="turn-banner"></div>
+      <div class="table-area">
+        <div class="table-label">Bộ đang ra</div>
+        <div class="table-cards" id="table-cards"><div class="empty-table">Chưa ai đánh — bạn được đi trước</div></div>
+      </div>
+    </div>
+
+    <div class="card-panel">
+      <div class="hand-label">
+        <strong>Bài của bạn</strong>
+        <span class="muted" id="hand-count"></span>
+      </div>
+      <div class="hand-strip" id="hand-strip"></div>
+      <div class="action-bar">
+        <button id="btn-play" class="btn-gold" style="flex:2;">Đánh bài</button>
+        <button id="btn-pass" class="btn-outline" style="flex:1;">Bỏ lượt</button>
+      </div>
+    </div>
+
+    <div class="card-panel">
+      <strong style="font-size:13px;">Bảng nợ ván này</strong>
+      <div class="players" id="game-ledger" style="margin-top:8px;"></div>
+    </div>
+  </div>
+
+  <div class="foot-note">
+    Kết nối realtime qua máy chủ — nếu phòng vừa "ngủ" do không ai dùng, mở lại link có thể mất khoảng 30–60 giây để tỉnh dậy.
+  </div>
+</div>
+
+<div id="overlay-baosam" class="overlay" hidden>
+  <div class="box">
+    <h2 id="bs-title">Báo Sâm!</h2>
+    <p class="muted center" id="bs-sub"></p>
+    <div id="bs-settle"></div>
+    <button id="bs-next" class="btn-gold" style="width:100%;margin-top:16px;" hidden>Ván tiếp theo</button>
+    <p class="muted center" id="bs-wait" style="margin-top:12px;">Đợi chủ phòng bắt đầu ván mới…</p>
+  </div>
+</div>
+
+<div id="overlay-roundend" class="overlay" hidden>
+  <div class="box">
+    <h2 id="re-title">Kết thúc ván</h2>
+    <div id="re-settle"></div>
+    <button id="re-next" class="btn-gold" style="width:100%;margin-top:16px;" hidden>Ván tiếp theo</button>
+    <p class="muted center" id="re-wait" style="margin-top:12px;">Đợi chủ phòng bắt đầu ván mới…</p>
+  </div>
+</div>
+
+<div id="toast" class="toast" hidden></div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+const RANK_ORDER = ['3','4','5','6','7','8','9','10','J','Q','K','A','2'];
+const SUIT_SYMBOL = { S:'♠', C:'♣', D:'♦', H:'♥' };
+const RED_SUITS = new Set(['D','H']);
+const fmtVND = n => (n<0?'-':'') + Math.abs(n).toLocaleString('vi-VN') + '₫';
+
+const socket = io();
+
+let state = {
+  name: '', roomCode: '', mySeat: -1, isHost: false,
+  players: [], betTier: 10000, phase: 'entry', roundNumber: 0,
+  myHand: [], selected: new Set(),
+  turnSeat: -1, table: null, cardCounts: {},
+};
+
+const $ = id => document.getElementById(id);
+
+function showScreen(name){
+  $('screen-entry').hidden = name !== 'entry';
+  $('screen-lobby').hidden = name !== 'lobby';
+  $('screen-game').hidden = name !== 'game';
+}
+
+function toast(msg){
+  const t = $('toast'); t.textContent = msg; t.hidden = false;
+  clearTimeout(toast._h);
+  toast._h = setTimeout(()=>{ t.hidden = true; }, 3200);
+}
+
+function cardLabel(c){ return c.rank + SUIT_SYMBOL[c.suit]; }
+
+function renderCardEl(c, {small=false, selectable=false}={}){
+  const div = document.createElement('div');
+  div.className = 'pcard' + (small?' small':'') + (RED_SUITS.has(c.suit)?' red':'');
+  div.innerHTML = `<div>${c.rank}</div><div class="suit">${SUIT_SYMBOL[c.suit]}</div>`;
+  if (selectable){
+    div.dataset.code = c.code;
+    if (state.selected.has(c.code)) div.classList.add('sel');
+    div.addEventListener('click', () => {
+      if (state.selected.has(c.code)) state.selected.delete(c.code);
+      else state.selected.add(c.code);
+      renderHand();
+    });
+  }
+  return div;
+}
+
+function sortHand(cards){
+  return cards.slice().sort((a,b) => RANK_ORDER.indexOf(a.rank) - RANK_ORDER.indexOf(b.rank) || a.suit.localeCompare(b.suit));
+}
+
+const RULES_TEXT = `
+<strong>Không tính chất/màu.</strong> Sức mạnh lá: 3&lt;4&lt;5&lt;6&lt;7&lt;8&lt;9&lt;10&lt;J&lt;Q&lt;K&lt;A&lt;2 (lá 2 mạnh nhất).<br>
+<strong>Bộ hợp lệ:</strong> đơn, đôi, ba (xám), tứ quý, sảnh 3–9 lá liên tiếp theo dãy A-2-3-4-5-6-7-8-9-10-J-Q-K-A (A vừa thấp vừa cao, không được vòng K-A-2) — nhỏ nhất A-2-3, lớn nhất Q-K-A. Đủ 10 lá liên tiếp gọi là <strong>sảnh rồng</strong> (chỉ tính khi báo sâm).<br>
+<strong>Người đi đầu ván:</strong> ván 1 ngẫu nhiên, các ván sau người thắng ván trước đi đầu (bị chặn sâm thì người chặn đi đầu). Người đi đầu được đánh bộ bất kỳ, không bị ép lá nào.<br>
+<strong>Báo sâm:</strong> chia bài xong, xét theo thứ tự chỗ ngồi từ người đi đầu — ai có sảnh rồng được báo trước tiên, không ai chặn được. Nếu không ai có sảnh rồng, người đầu tiên (theo thứ tự) xếp hết 10 lá thành các bộ hợp lệ sẽ là người báo sâm duy nhất — không ai được báo tranh nữa. Người đó đánh lần lượt hết các bộ của mình; nếu ở bất kỳ bộ nào có người khác cầm bộ đủ sức chặn, sâm bị chặn ngay tại đó và người chặn xem như thắng ván.<br>
+<strong>Tiền báo sâm:</strong> thành công — mỗi người còn lại trả 20 × mức cược (sâm rồng thì 40 ×); bị chặn — người báo sâm đền một lần duy nhất 20 × mức cược × số người chơi cho riêng người chặn.<br>
+<strong>Đánh bài thường:</strong> giống Tiến Lên — đánh đè bộ trước (cùng loại, cùng số lá, hạng cao hơn) hoặc bỏ lượt, hết vòng người đánh cuối được đi tiếp, ai hết bài trước thắng.<br>
+<strong>Chặt (bomb):</strong> lá 2 đơn lẻ chỉ bị tứ quý chặt (đền ngay 20 × mức cược); đôi lá 2 chỉ bị "hai tứ quý" (8 lá, 2 bộ tứ quý khác hạng) chặt (đền ngay 20 × mức cược); tứ quý bị tứ quý lớn hơn đè (đền ngay 40 × mức cược). Ba lá 2 và tứ quý 2 không gì chặt được.<br>
+<strong>Cấm về bằng lá 2:</strong> không được đánh lá/bộ toàn lá 2 (đơn, đôi, ba, tứ quý) làm nước cuối cùng để hết bài. Sảnh có lá 2 (VD 2-3-4-5) vẫn được đánh cuối bình thường.<br>
+<strong>Tiền ván thường:</strong> người thua trả số lá còn lại × mức cược; còn nguyên 10 lá (chưa đánh được lá nào, gọi là <strong>móm</strong>) trả 15 × mức cược.
+`;
+$('rules-body').innerHTML = RULES_TEXT;
+
+// ---------- ENTRY ----------
+const urlRoom = new URLSearchParams(location.search).get('room');
+if (urlRoom) $('in-code').value = urlRoom.toUpperCase();
+
+$('btn-create').addEventListener('click', () => {
+  const name = $('in-name').value.trim();
+  if (!name) return $('entry-error').textContent = 'Nhập tên trước đã nhé.';
+  state.name = name;
+  socket.emit('create_room', { name }, res => {
+    if (!res || !res.ok) return $('entry-error').textContent = 'Không tạo được phòng, thử lại.';
+    enterLobby(res.roomCode, 0, true);
+  });
+});
+
+$('btn-join').addEventListener('click', () => {
+  const name = $('in-name').value.trim();
+  const code = $('in-code').value.trim().toUpperCase();
+  if (!name) return $('entry-error').textContent = 'Nhập tên trước đã nhé.';
+  if (!code) return $('entry-error').textContent = 'Nhập mã phòng.';
+  state.name = name;
+  socket.emit('join_room', { roomCode: code, name }, res => {
+    if (!res || !res.ok) return $('entry-error').textContent = (res && res.error) || 'Không vào được phòng.';
+    enterLobby(res.roomCode, res.seat, false);
+  });
+});
+
+function enterLobby(code, seat, isHost){
+  state.roomCode = code; state.mySeat = seat; state.isHost = isHost;
+  $('lobby-code').textContent = code;
+  $('lobby-link').value = location.origin + location.pathname + '?room=' + code;
+  history.replaceState(null, '', '?room=' + code);
+  showScreen('lobby');
+}
+
+$('btn-copy').addEventListener('click', async () => {
+  const val = $('lobby-link').value;
+  try { await navigator.clipboard.writeText(val); toast('Đã copy link!'); }
+  catch(e){ $('lobby-link').select(); document.execCommand('copy'); toast('Đã copy link!'); }
+});
+
+// ---------- LOBBY: bet tier ----------
+document.querySelectorAll('.tier-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    socket.emit('set_bet_tier', { tier: Number(btn.dataset.tier) });
+  });
+});
+$('in-tier-custom').addEventListener('change', () => {
+  const v = Number($('in-tier-custom').value.replace(/[^\d]/g,''));
+  if (v > 0) socket.emit('set_bet_tier', { tier: v });
+});
+$('btn-start').addEventListener('click', () => socket.emit('start_round'));
+$('bs-next').addEventListener('click', () => socket.emit('start_round'));
+$('re-next').addEventListener('click', () => socket.emit('start_round'));
+
+// ---------- SOCKET EVENTS ----------
+socket.on('room_update', data => {
+  state.players = data.players; state.betTier = data.betTier; state.phase = data.phase; state.roundNumber = data.roundNumber;
+  const me = data.players.find(p => p.seat === state.mySeat);
+  state.isHost = !!(me && me.isHost);
+
+  renderLobbyPlayers();
+  $('host-controls').hidden = !state.isHost;
+  $('guest-wait').hidden = state.isHost;
+  document.querySelectorAll('.tier-btn').forEach(b => b.classList.toggle('active', Number(b.dataset.tier) === state.betTier));
+  const canStart = data.players.length >= 2 && data.players.length <= 5;
+  $('btn-start').disabled = !canStart;
+  $('btn-start').textContent = 'Bắt đầu ván ' + (data.roundNumber + 1);
+
+  renderGameLedger();
+
+  if (data.phase === 'lobby') { showScreen('lobby'); $('overlay-baosam').hidden = true; $('overlay-roundend').hidden = true; }
+  else if (data.phase === 'playing') { showScreen('game'); $('overlay-baosam').hidden = true; $('overlay-roundend').hidden = true; }
+  // baosam / roundend: screen đổi khi nhận event tương ứng bên dưới
+});
+
+socket.on('your_hand', data => {
+  state.myHand = sortHand(data.cards);
+  state.selected.clear();
+  renderHand();
+});
+
+socket.on('game_state', data => {
+  state.turnSeat = data.turnSeat; state.table = data.table; state.cardCounts = data.cardCounts;
+  showScreen('game');
+  renderSeats(); renderTable(); renderHand(); renderTurnBanner();
+});
+
+socket.on('bao_sam_result', info => {
+  showScreen('lobby');
+  renderBaoSam(info);
+});
+
+socket.on('round_result', info => {
+  renderRoundEnd(info);
+});
+
+socket.on('chop_event', info => {
+  const kindText = {
+    quad_vs_two: 'Tứ quý chặt lá 2 lẻ',
+    quad_vs_quad: 'Tứ quý lớn hơn chặt tứ quý',
+    doublequad_vs_pair2: 'Hai tứ quý chặt đôi lá 2',
+  }[info.kind] || 'Chặt bài';
+  toast(`${kindText}! ${playerName(info.from)} đền ${playerName(info.to)} ${fmtVND(info.amount)}`);
+  renderGameLedger();
+});
+
+socket.on('error_msg', data => toast(data.message));
+
+// ---------- RENDER ----------
+function renderLobbyPlayers(){
+  const box = $('lobby-players'); box.innerHTML = '';
+  state.players.forEach(p => {
+    const row = document.createElement('div');
+    row.className = 'player-row' + (p.connected ? '' : ' disconnected');
+    row.innerHTML = `
+      <div class="seat-badge">${p.seat+1}</div>
+      <span class="dot"></span>
+      <div class="name">${escapeHtml(p.name)}</div>
+      ${p.isHost ? '<div class="tag">Chủ phòng</div>' : ''}
+    `;
+    box.appendChild(row);
+  });
+}
+
+function renderGameLedger(){
+  const box = $('game-ledger'); if(!box) return; box.innerHTML = '';
+  state.players.forEach(p => {
+    const row = document.createElement('div');
+    row.className = 'player-row';
+    const cls = p.ledger > 0 ? 'pos' : p.ledger < 0 ? 'neg' : 'zero';
+    row.innerHTML = `
+      <div class="seat-badge">${p.seat+1}</div>
+      <div class="name">${escapeHtml(p.name)}</div>
+      <div class="ledger ${cls}">${p.ledger === 0 ? '0₫' : fmtVND(p.ledger)}</div>
+    `;
+    box.appendChild(row);
+  });
+}
+
+function renderSeats(){
+  const box = $('seats-strip'); box.innerHTML = '';
+  state.players.forEach(p => {
+    const chip = document.createElement('div');
+    chip.className = 'seat-chip' + (p.seat === state.turnSeat ? ' turn' : '');
+    const count = state.cardCounts[p.seat];
+    chip.innerHTML = `<div class="nm">${p.seat===state.mySeat?'Bạn':escapeHtml(p.name)}</div><div class="cc">${count!=null?count+' lá':''}</div>`;
+    box.appendChild(chip);
+  });
+}
+
+function renderTurnBanner(){
+  const banner = $('turn-banner');
+  if (state.turnSeat === state.mySeat){
+    banner.textContent = state.table ? 'Đến lượt bạn — đánh đè/chặt hoặc bỏ lượt' : 'Đến lượt bạn — bạn được đi trước, đánh bộ bất kỳ';
+  } else {
+    const p = state.players.find(pl => pl.seat === state.turnSeat);
+    banner.textContent = p ? `Đang chờ ${p.name} đánh…` : '';
+  }
+}
+
+function renderTable(){
+  const box = $('table-cards'); box.innerHTML = '';
+  if (!state.table){
+    box.innerHTML = '<div class="empty-table">Chưa ai đánh — người đi trước được ra bài bất kỳ</div>';
+    return;
+  }
+  state.table.cards.forEach(c => box.appendChild(renderCardEl(c, {small:true})));
+}
+
+function renderHand(){
+  const box = $('hand-strip'); box.innerHTML = '';
+  const canAct = state.phase === 'playing' && state.turnSeat === state.mySeat;
+  state.myHand.forEach(c => box.appendChild(renderCardEl(c, {selectable: canAct})));
+  $('hand-count').textContent = state.myHand.length + ' lá';
+  $('btn-play').disabled = !canAct || state.selected.size === 0;
+  $('btn-pass').disabled = !canAct || !state.table;
+}
+
+$('btn-play').addEventListener('click', () => {
+  if (state.selected.size === 0) return;
+  socket.emit('play_cards', { cardCodes: Array.from(state.selected) });
+});
+$('btn-pass').addEventListener('click', () => socket.emit('pass_turn'));
+
+function playerName(seat){ const p = state.players.find(x=>x.seat===seat); return p ? p.name : ('Ghế '+(seat+1)); }
+
+function renderBaoSam(info){
+  $('overlay-baosam').hidden = false;
+  const declarerName = playerName(info.declarer);
+  const wasBlocked = info.blockedBy !== -1 && info.blockedBy !== null && info.blockedBy !== undefined;
+  if (wasBlocked){
+    const blockerName = playerName(info.blockedBy);
+    $('bs-title').textContent = declarerName + ' báo Sâm bị chặn!';
+    $('bs-sub').textContent = `${blockerName} chặn được — ${declarerName} đền trọn gói cho ${blockerName}.`;
+  } else {
+    $('bs-title').textContent = (info.isDragon ? '🐉 ' : '') + declarerName + ' báo Sâm thành công!';
+    $('bs-sub').textContent = info.isDragon ? 'Thắng bằng sảnh rồng — tiền nhân đôi (40×).' : 'Không ai chặn được.';
+  }
+  const box = $('bs-settle'); box.innerHTML = '';
+  info.payments.forEach(p => {
+    const row = document.createElement('div'); row.className = 'settle-row';
+    row.innerHTML = `<span>${playerName(p.seat)}</span><span>-${fmtVND(p.amount)}</span>`;
+    box.appendChild(row);
+  });
+  const totalRow = document.createElement('div'); totalRow.className = 'settle-row';
+  totalRow.innerHTML = `<strong>${playerName(info.winnerSeat)} nhận</strong><strong>+${fmtVND(info.total)}</strong>`;
+  box.appendChild(totalRow);
+  $('bs-next').hidden = !state.isHost;
+  $('bs-wait').hidden = state.isHost;
+}
+
+function renderRoundEnd(info){
+  showScreen('game');
+  $('overlay-roundend').hidden = false;
+  const winnerName = playerName(info.winnerSeat);
+  $('re-title').textContent = winnerName + ' về nhất!';
+  const box = $('re-settle'); box.innerHTML = '';
+  state.players.forEach(p => {
+    if (p.seat === info.winnerSeat) return;
+    const row = document.createElement('div'); row.className = 'settle-row';
+    const k = info.counts[p.seat];
+    const mom = k === 10 ? ' (móm)' : '';
+    row.innerHTML = `<span>${p.name} — còn ${k} lá${mom}</span><span>-${fmtVND(info.amounts[p.seat])}</span>`;
+    box.appendChild(row);
+  });
+  const totalRow = document.createElement('div'); totalRow.className = 'settle-row';
+  totalRow.innerHTML = `<strong>${winnerName} nhận</strong><strong>+${fmtVND(info.total)}</strong>`;
+  box.appendChild(totalRow);
+  $('re-next').hidden = !state.isHost;
+  $('re-wait').hidden = state.isHost;
+}
+
+function escapeHtml(s){ const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
+</script>
+</body>
+</html>
