@@ -73,6 +73,11 @@
   .center{text-align:center;}
   [hidden]{display:none!important;}
 
+  .room-joined-banner{
+    text-align:center; color:var(--ok); font-weight:700; font-size:13px;
+    background:rgba(127,217,154,.12); border:1px solid rgba(127,217,154,.35);
+    border-radius:10px; padding:8px 10px; margin-bottom:12px;
+  }
   .room-code{
     font-family:"Fraunces",serif; font-size:34px; letter-spacing:.12em; color:var(--gold-bright);
     text-align:center; margin:6px 0 2px;
@@ -192,7 +197,8 @@
 
   <!-- ===== PHÒNG CHỜ ===== -->
   <div id="screen-lobby" class="card-panel" hidden>
-    <div class="muted center">Mã phòng</div>
+    <div class="room-joined-banner" id="room-joined-banner">✅ Bạn đã vào phòng chờ</div>
+    <div class="muted center">Mã phòng — gửi cho bạn bè để họ vào cùng</div>
     <div class="room-code" id="lobby-code">—</div>
     <div class="link-box">
       <input id="lobby-link" type="text" readonly />
@@ -200,6 +206,7 @@
     </div>
 
     <div class="players" id="lobby-players"></div>
+    <div class="muted center" id="wait-count" style="margin-top:10px;"></div>
 
     <div id="host-controls" hidden style="margin-top:16px;">
       <label>Mức cược / lá</label>
@@ -212,7 +219,7 @@
         <input id="in-tier-custom" type="text" placeholder="Hoặc nhập số tuỳ ý (VNĐ/lá)" />
       </div>
       <button id="btn-start" class="btn-gold" style="width:100%;">Bắt đầu ván 1</button>
-      <div class="muted center" style="margin-top:8px;">Cần 2–5 người trong phòng mới bắt đầu được.</div>
+      <div class="muted center" style="margin-top:8px;" id="start-hint">Đang chờ thêm người chơi — cần tối thiểu 2 người mới chia bài được.</div>
     </div>
     <div id="guest-wait" class="muted center" style="margin-top:14px;">Đợi chủ phòng bắt đầu…</div>
 
@@ -392,9 +399,15 @@ $('in-tier-custom').addEventListener('change', () => {
   const v = Number($('in-tier-custom').value.replace(/[^\d]/g,''));
   if (v > 0) socket.emit('set_bet_tier', { tier: v });
 });
-$('btn-start').addEventListener('click', () => socket.emit('start_round'));
-$('bs-next').addEventListener('click', () => socket.emit('start_round'));
-$('re-next').addEventListener('click', () => socket.emit('start_round'));
+function tryStartRound(){
+  const count = state.players.length;
+  if (count < 2) { toast(`Cần thêm ít nhất ${2 - count} người nữa mới chia bài được — gửi mã phòng/link cho bạn bè nhé.`); return; }
+  if (count > 5) { toast('Phòng chỉ chơi tối đa 5 người.'); return; }
+  socket.emit('start_round');
+}
+$('btn-start').addEventListener('click', tryStartRound);
+$('bs-next').addEventListener('click', tryStartRound);
+$('re-next').addEventListener('click', tryStartRound);
 
 // ---------- SOCKET EVENTS ----------
 socket.on('room_update', data => {
@@ -406,9 +419,16 @@ socket.on('room_update', data => {
   $('host-controls').hidden = !state.isHost;
   $('guest-wait').hidden = state.isHost;
   document.querySelectorAll('.tier-btn').forEach(b => b.classList.toggle('active', Number(b.dataset.tier) === state.betTier));
-  const canStart = data.players.length >= 2 && data.players.length <= 5;
-  $('btn-start').disabled = !canStart;
+  const count = data.players.length;
+  const canStart = count >= 2 && count <= 5;
+  // Nút Start luôn bấm được (không làm mờ/khoá) để không tạo cảm giác "chưa vào được phòng";
+  // nếu bấm khi chưa đủ người, bấm sẽ báo rõ lý do thay vì im lặng vô hiệu hoá.
+  $('btn-start').disabled = false;
   $('btn-start').textContent = 'Bắt đầu ván ' + (data.roundNumber + 1);
+  $('start-hint').textContent = canStart
+    ? `Đã có ${count}/5 người — bấm nút trên để chia bài.`
+    : `Đang chờ thêm người chơi (${count}/5) — gửi mã phòng/link ở trên cho bạn bè, cần tối thiểu 2 người mới chia bài được.`;
+  $('wait-count').textContent = state.isHost ? '' : `Phòng đang có ${count}/5 người chơi.`;
 
   renderGameLedger();
 
@@ -498,7 +518,7 @@ function renderTurnBanner(){
     banner.textContent = state.table ? 'Đến lượt bạn — đánh đè/chặt hoặc bỏ lượt' : 'Đến lượt bạn — bạn được đi trước, đánh bộ bất kỳ';
   } else {
     const p = state.players.find(pl => pl.seat === state.turnSeat);
-    banner.textContent = p ? `Đang chờ ${p.name} đánh…` : '';
+    banner.textContent = p ? `Đang chở ${p.name} đánh…` : '';
   }
 }
 
