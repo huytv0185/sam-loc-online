@@ -326,6 +326,20 @@ const fmtVND = n => (n<0?'-':'') + Math.abs(n).toLocaleString('vi-VN') + '₫';
 
 const socket = io();
 
+// Mã định danh riêng của tab này, giữ nguyên kể cả khi rớt mạng hay tải lại trang.
+// Server dựa vào mã này để biết "vẫn là người cũ" và trả lại đúng ghế + đúng bài,
+// thay vì dựa vào tên (dễ nhầm, và sai khi server chưa kịp biết là đã rớt mạng).
+let CLIENT_ID = '';
+try {
+  CLIENT_ID = sessionStorage.getItem('samloc_client_id') || '';
+  if (!CLIENT_ID) {
+    CLIENT_ID = 'c' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+    sessionStorage.setItem('samloc_client_id', CLIENT_ID);
+  }
+} catch(e) {
+  CLIENT_ID = 'c' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+}
+
 // Tự động vào lại phòng nếu mất kết nối mạng giữa chừng (wifi chập chờn, khoá màn hình điện thoại...)
 // — nếu không có đoạn này, sau khi rớt mạng trình duyệt sẽ tự nối lại nhưng với một kết nối MỚI mà
 // server không biết là ai, nên bấm đánh bài/bỏ lượt sẽ không có phản hồi gì cả.
@@ -337,7 +351,7 @@ socket.on('connect', () => {
   let saved = null;
   try { saved = JSON.parse(sessionStorage.getItem('samloc_session') || 'null'); } catch(e){}
   if (!saved || !saved.roomCode || !saved.name) return;
-  socket.emit('join_room', { roomCode: saved.roomCode, name: saved.name, fromLink: true }, res => {
+  socket.emit('join_room', { roomCode: saved.roomCode, name: saved.name, fromLink: true, clientId: CLIENT_ID }, res => {
     if (res && res.ok) {
       state.mySeat = res.seat;
       toast('Đã kết nối lại phòng.');
@@ -441,7 +455,7 @@ $('btn-create').addEventListener('click', () => {
   state.name = name;
   $('entry-error').textContent = '';
   $('btn-create').disabled = true; $('btn-join').disabled = true;
-  emitWithTimeout('create_room', { name }, res => {
+  emitWithTimeout('create_room', { name, clientId: CLIENT_ID }, res => {
     $('btn-create').disabled = false; $('btn-join').disabled = false;
     if (!res || !res.ok) return $('entry-error').textContent = 'Không tạo được phòng — mạng chậm hoặc mất kết nối, thử lại nhé.';
     enterLobby(res.roomCode, 0, true);
@@ -455,7 +469,7 @@ function doJoin(code, fromLink){
   state.name = name;
   $('entry-error').textContent = '';
   ['btn-create','btn-join','btn-join-link'].forEach(id => { if ($(id)) $(id).disabled = true; });
-  emitWithTimeout('join_room', { roomCode: code, name, fromLink: !!fromLink }, res => {
+  emitWithTimeout('join_room', { roomCode: code, name, fromLink: !!fromLink, clientId: CLIENT_ID }, res => {
     ['btn-create','btn-join','btn-join-link'].forEach(id => { if ($(id)) $(id).disabled = false; });
     if (!res || !res.ok) return $('entry-error').textContent = (res && res.error) || 'Không vào được phòng — mạng chậm hoặc mất kết nối, thử lại nhé.';
     enterLobby(res.roomCode, res.seat, false);
@@ -474,7 +488,7 @@ $('btn-join-link').addEventListener('click', () => doJoin(inviteCode, true));
   $('in-code').value = saved.roomCode;
   state.name = saved.name;
   $('entry-error').textContent = 'Đang tự vào lại phòng cũ…';
-  emitWithTimeout('join_room', { roomCode: saved.roomCode, name: saved.name, fromLink: true }, res => {
+  emitWithTimeout('join_room', { roomCode: saved.roomCode, name: saved.name, fromLink: true, clientId: CLIENT_ID }, res => {
     if (!res || !res.ok) { $('entry-error').textContent = ''; return; } // không vào lại được thì cứ để người dùng tự thao tác bình thường
     enterLobby(res.roomCode, res.seat, false);
   });
