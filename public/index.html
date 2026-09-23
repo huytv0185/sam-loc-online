@@ -82,6 +82,21 @@
     font-family:"Fraunces",serif; font-size:34px; letter-spacing:.12em; color:var(--gold-bright);
     text-align:center; margin:6px 0 2px;
   }
+  .invite-banner{
+    text-align:center; background:rgba(216,180,106,.12); border:1px solid var(--panel-line);
+    border-radius:12px; padding:12px 10px; margin-bottom:16px;
+  }
+  .invite-title{font-size:12px;color:var(--ink-dim);text-transform:uppercase;letter-spacing:.06em;}
+  .invite-code{font-family:"Fraunces",serif;font-size:30px;letter-spacing:.12em;color:var(--gold-bright);margin-top:2px;}
+  .link-alt{display:block;text-align:center;margin-top:12px;font-size:12.5px;color:var(--ink-dim);text-decoration:underline;cursor:pointer;}
+  .conn-warning{
+    position:fixed; top:0; left:0; right:0; z-index:60; text-align:center;
+    background:var(--danger); color:#2a0b08; font-weight:700; font-size:13px; padding:7px 10px;
+  }
+  .game-roomcode{
+    text-align:center; font-size:12px; color:var(--ink-dim); margin-bottom:8px;
+  }
+  .game-roomcode b{color:var(--gold-bright);letter-spacing:.08em;}
   .link-box{display:flex;gap:8px;margin-top:10px;}
   .link-box input{flex:1;font-size:13px;}
 
@@ -170,6 +185,7 @@
 </style>
 </head>
 <body>
+<div class="conn-warning" id="conn-warning" hidden>⚠️ Mất kết nối mạng — đang tự nối lại…</div>
 <div class="wrap">
   <div class="brand">
     <div class="mark">S</div>
@@ -181,16 +197,32 @@
 
   <!-- ===== MÀN HÌNH VÀO PHÒNG ===== -->
   <div id="screen-entry" class="card-panel">
+    <!-- Chỉ hiện khi mở bằng link mời: chỉ còn ĐÚNG MỘT nút để không ai bấm nhầm sang tạo phòng riêng -->
+    <div class="invite-banner" id="invite-banner" hidden>
+      <div class="invite-title">Bạn được mời vào phòng</div>
+      <div class="invite-code" id="invite-code">—</div>
+    </div>
+
     <label for="in-name">Tên của bạn</label>
     <input id="in-name" type="text" maxlength="20" placeholder="VD: Tú" />
-    <div class="row" style="margin-top:12px;">
-      <button id="btn-create" class="btn-gold">Tạo phòng mới</button>
+
+    <div id="entry-link-mode" hidden>
+      <div class="row" style="margin-top:12px;">
+        <button id="btn-join-link" class="btn-gold">Vào phòng chơi cùng</button>
+      </div>
+      <span class="link-alt" id="link-show-create">Tôi muốn tự tạo phòng mới thay vì vào phòng này</span>
     </div>
-    <div class="muted center" style="margin:14px 0 8px;">— hoặc —</div>
-    <label for="in-code">Mã phòng bạn bè gửi</label>
-    <div class="row">
-      <input id="in-code" type="text" maxlength="6" placeholder="VD: 7K9QX" style="text-transform:uppercase;" />
-      <button id="btn-join" class="btn-outline">Vào phòng</button>
+
+    <div id="entry-normal-mode">
+      <div class="row" style="margin-top:12px;">
+        <button id="btn-create" class="btn-gold">Tạo phòng mới</button>
+      </div>
+      <div class="muted center" style="margin:14px 0 8px;">— hoặc —</div>
+      <label for="in-code">Mã phòng bạn bè gửi</label>
+      <div class="row">
+        <input id="in-code" type="text" maxlength="6" placeholder="VD: 7K9QX" style="text-transform:uppercase;" />
+        <button id="btn-join" class="btn-outline">Vào phòng</button>
+      </div>
     </div>
     <div id="entry-error" class="muted" style="color:var(--danger);margin-top:8px;"></div>
   </div>
@@ -231,6 +263,7 @@
 
   <!-- ===== BÀN CHƠI ===== -->
   <div id="screen-game" hidden>
+    <div class="game-roomcode">Phòng <b id="game-roomcode">—</b></div>
     <div class="table-felt">
       <div class="seats-strip" id="seats-strip"></div>
       <div class="turn-banner" id="turn-banner"></div>
@@ -293,6 +326,31 @@ const fmtVND = n => (n<0?'-':'') + Math.abs(n).toLocaleString('vi-VN') + '₫';
 
 const socket = io();
 
+// Tự động vào lại phòng nếu mất kết nối mạng giữa chừng (wifi chập chờn, khoá màn hình điện thoại...)
+// — nếu không có đoạn này, sau khi rớt mạng trình duyệt sẽ tự nối lại nhưng với một kết nối MỚI mà
+// server không biết là ai, nên bấm đánh bài/bỏ lượt sẽ không có phản hồi gì cả.
+let hasConnectedBefore = false;
+socket.on('connect', () => {
+  const warn = document.getElementById('conn-warning');
+  if (warn) warn.hidden = true;
+  if (!hasConnectedBefore) { hasConnectedBefore = true; return; }
+  let saved = null;
+  try { saved = JSON.parse(sessionStorage.getItem('samloc_session') || 'null'); } catch(e){}
+  if (!saved || !saved.roomCode || !saved.name) return;
+  socket.emit('join_room', { roomCode: saved.roomCode, name: saved.name, fromLink: true }, res => {
+    if (res && res.ok) {
+      state.mySeat = res.seat;
+      toast('Đã kết nối lại phòng.');
+    } else {
+      toast('Mất kết nối và không tự vào lại phòng được — tải lại trang nhé.');
+    }
+  });
+});
+socket.on('disconnect', () => {
+  const warn = document.getElementById('conn-warning');
+  if (warn && state.roomCode) warn.hidden = false;
+});
+
 let state = {
   name: '', roomCode: '', mySeat: -1, isHost: false,
   players: [], betTier: 10000, phase: 'entry', roundNumber: 0,
@@ -350,36 +408,85 @@ const RULES_TEXT = `
 $('rules-body').innerHTML = RULES_TEXT;
 
 // ---------- ENTRY ----------
+// Khi mở bằng LINK mời: chuyển hẳn sang chế độ "vào phòng", chỉ để lại đúng một nút.
+// (Trước đây nút "Tạo phòng mới" to và nổi hơn nên nhiều người bấm nhầm -> mỗi người ngồi
+//  một phòng riêng, chủ phòng không thấy họ đâu và họ thì không đủ người để bắt đầu ván.)
 const urlRoom = new URLSearchParams(location.search).get('room');
-if (urlRoom) $('in-code').value = urlRoom.toUpperCase();
+const inviteCode = urlRoom ? urlRoom.toUpperCase().trim() : '';
+if (inviteCode) {
+  $('in-code').value = inviteCode;
+  $('invite-code').textContent = inviteCode;
+  $('invite-banner').hidden = false;
+  $('entry-link-mode').hidden = false;
+  $('entry-normal-mode').hidden = true;
+  $('btn-join-link').textContent = 'Vào phòng ' + inviteCode;
+}
+$('link-show-create').addEventListener('click', () => {
+  $('entry-link-mode').hidden = true;
+  $('entry-normal-mode').hidden = false;
+  $('invite-banner').hidden = true;
+});
+
+// bọc emit có callback bằng timeout thủ công: nếu mạng chập chờn và server không kịp phản hồi,
+// nút bấm không được phép đứng im vô thời hạn — phải báo lỗi để người dùng biết mà thử lại.
+function emitWithTimeout(event, payload, cb, ms=8000){
+  let done = false;
+  const timer = setTimeout(() => { if (!done) { done = true; cb(null); } }, ms);
+  socket.emit(event, payload, res => { if (!done) { done = true; clearTimeout(timer); cb(res); } });
+}
 
 $('btn-create').addEventListener('click', () => {
   const name = $('in-name').value.trim();
   if (!name) return $('entry-error').textContent = 'Nhập tên trước đã nhé.';
   state.name = name;
-  socket.emit('create_room', { name }, res => {
-    if (!res || !res.ok) return $('entry-error').textContent = 'Không tạo được phòng, thử lại.';
+  $('entry-error').textContent = '';
+  $('btn-create').disabled = true; $('btn-join').disabled = true;
+  emitWithTimeout('create_room', { name }, res => {
+    $('btn-create').disabled = false; $('btn-join').disabled = false;
+    if (!res || !res.ok) return $('entry-error').textContent = 'Không tạo được phòng — mạng chậm hoặc mất kết nối, thử lại nhé.';
     enterLobby(res.roomCode, 0, true);
   });
 });
 
-$('btn-join').addEventListener('click', () => {
+function doJoin(code, fromLink){
   const name = $('in-name').value.trim();
-  const code = $('in-code').value.trim().toUpperCase();
   if (!name) return $('entry-error').textContent = 'Nhập tên trước đã nhé.';
   if (!code) return $('entry-error').textContent = 'Nhập mã phòng.';
   state.name = name;
-  socket.emit('join_room', { roomCode: code, name }, res => {
-    if (!res || !res.ok) return $('entry-error').textContent = (res && res.error) || 'Không vào được phòng.';
+  $('entry-error').textContent = '';
+  ['btn-create','btn-join','btn-join-link'].forEach(id => { if ($(id)) $(id).disabled = true; });
+  emitWithTimeout('join_room', { roomCode: code, name, fromLink: !!fromLink }, res => {
+    ['btn-create','btn-join','btn-join-link'].forEach(id => { if ($(id)) $(id).disabled = false; });
+    if (!res || !res.ok) return $('entry-error').textContent = (res && res.error) || 'Không vào được phòng — mạng chậm hoặc mất kết nối, thử lại nhé.';
     enterLobby(res.roomCode, res.seat, false);
   });
-});
+}
+$('btn-join').addEventListener('click', () => doJoin($('in-code').value.trim().toUpperCase(), false));
+$('btn-join-link').addEventListener('click', () => doJoin(inviteCode, true));
+
+// Nếu tab bị trình duyệt tự tải lại (hay gặp trên điện thoại khi khoá màn hình/chuyển app lâu),
+// tự vào lại đúng phòng + đúng tên cũ luôn, không bắt phải gõ lại mã phòng.
+(function tryAutoRejoinOnLoad(){
+  let saved = null;
+  try { saved = JSON.parse(sessionStorage.getItem('samloc_session') || 'null'); } catch(e){}
+  if (!saved || !saved.roomCode || !saved.name) return;
+  $('in-name').value = saved.name;
+  $('in-code').value = saved.roomCode;
+  state.name = saved.name;
+  $('entry-error').textContent = 'Đang tự vào lại phòng cũ…';
+  emitWithTimeout('join_room', { roomCode: saved.roomCode, name: saved.name, fromLink: true }, res => {
+    if (!res || !res.ok) { $('entry-error').textContent = ''; return; } // không vào lại được thì cứ để người dùng tự thao tác bình thường
+    enterLobby(res.roomCode, res.seat, false);
+  });
+})();
 
 function enterLobby(code, seat, isHost){
   state.roomCode = code; state.mySeat = seat; state.isHost = isHost;
   $('lobby-code').textContent = code;
+  $('game-roomcode').textContent = code;
   $('lobby-link').value = location.origin + location.pathname + '?room=' + code;
   history.replaceState(null, '', '?room=' + code);
+  try { sessionStorage.setItem('samloc_session', JSON.stringify({ roomCode: code, name: state.name })); } catch(e){}
   showScreen('lobby');
 }
 
@@ -518,7 +625,7 @@ function renderTurnBanner(){
     banner.textContent = state.table ? 'Đến lượt bạn — đánh đè/chặt hoặc bỏ lượt' : 'Đến lượt bạn — bạn được đi trước, đánh bộ bất kỳ';
   } else {
     const p = state.players.find(pl => pl.seat === state.turnSeat);
-    banner.textContent = p ? `Đang chở ${p.name} đánh…` : '';
+    banner.textContent = p ? `Đang chờ ${p.name} đánh…` : '';
   }
 }
 
@@ -533,18 +640,36 @@ function renderTable(){
 
 function renderHand(){
   const box = $('hand-strip'); box.innerHTML = '';
-  const canAct = state.phase === 'playing' && state.turnSeat === state.mySeat;
-  state.myHand.forEach(c => box.appendChild(renderCardEl(c, {selectable: canAct})));
+  // Cho chọn bài cả khi chưa tới lượt (để tính trước), nút bấm KHÔNG bị khoá cứng nữa —
+  // bấm sai lúc thì báo rõ lý do, thay vì im lặng làm người chơi tưởng app hỏng.
+  const canSelect = state.phase === 'playing';
+  state.myHand.forEach(c => box.appendChild(renderCardEl(c, {selectable: canSelect})));
   $('hand-count').textContent = state.myHand.length + ' lá';
-  $('btn-play').disabled = !canAct || state.selected.size === 0;
-  $('btn-pass').disabled = !canAct || !state.table;
+  $('btn-play').disabled = false;
+  $('btn-pass').disabled = false;
+}
+
+function turnBlockReason(){
+  if (state.phase !== 'playing') return 'Ván chưa bắt đầu — đợi chủ phòng chia bài nhé.';
+  if (state.turnSeat !== state.mySeat){
+    const p = state.players.find(pl => pl.seat === state.turnSeat);
+    return p ? `Chưa đến lượt bạn — đang chờ ${p.name} đánh.` : 'Chưa đến lượt bạn.';
+  }
+  return null;
 }
 
 $('btn-play').addEventListener('click', () => {
-  if (state.selected.size === 0) return;
+  const blocked = turnBlockReason();
+  if (blocked) return toast(blocked);
+  if (state.selected.size === 0) return toast('Chọn lá bài muốn đánh trước (bấm vào lá bài ở dưới).');
   socket.emit('play_cards', { cardCodes: Array.from(state.selected) });
 });
-$('btn-pass').addEventListener('click', () => socket.emit('pass_turn'));
+$('btn-pass').addEventListener('click', () => {
+  const blocked = turnBlockReason();
+  if (blocked) return toast(blocked);
+  if (!state.table) return toast('Bạn đang được đi trước — phải đánh bài chứ không bỏ lượt được.');
+  socket.emit('pass_turn');
+});
 
 function playerName(seat){ const p = state.players.find(x=>x.seat===seat); return p ? p.name : ('Ghế '+(seat+1)); }
 
