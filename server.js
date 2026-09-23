@@ -6,7 +6,8 @@ const E = require('./samloc-engine.js');
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server);
+// ping dày hơn mặc định (25s/20s) để server phát hiện người chơi rớt mạng trong ~20s thay vì ~45s
+const io = new Server(server, { pingInterval: 10000, pingTimeout: 10000 });
 
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -159,10 +160,10 @@ function finishRoundIfOver(room) {
 }
 
 io.on('connection', socket => {
-  socket.on('create_room', ({ name }, cb) => {
+  socket.on('create_room', ({ name, clientId }, cb) => {
     const code = genRoomCode();
     const room = newRoom(code, socket.id);
-    room.players.push({ socketId: socket.id, name: (name || 'Chủ phòng').slice(0, 20), seat: 0, connected: true, ledger: 0 });
+    room.players.push({ socketId: socket.id, clientId: clientId || null, name: (name || 'Chủ phòng').slice(0, 20), seat: 0, connected: true, ledger: 0 });
     rooms.set(code, room);
     socket.join(code);
     socket.data.roomCode = code;
@@ -170,7 +171,7 @@ io.on('connection', socket => {
     broadcastRoom(room);
   });
 
-  socket.on('join_room', ({ roomCode, name, fromLink }, cb) => {
+  socket.on('join_room', ({ roomCode, name, fromLink, clientId }, cb) => {
     const code = (roomCode || '').toUpperCase().trim();
     const cleanName = (name || '').trim();
     let room = rooms.get(code);
@@ -185,20 +186,28 @@ io.on('connection', socket => {
     }
     if (!room) return cb && cb({ ok: false, error: 'Không tìm thấy phòng — kiểm tra lại mã phòng nhé.' });
 
-    const existingDisconnected = room.players.find(p => p.name === cleanName && !p.connected);
-    if (existingDisconnected) {
+    // Nhận diện người chơi bằng clientId (mã định danh riêng của từng máy/tab), KHÔNG dùng tên.
+    // Lý do: khi điện thoại rớt mạng đột ngột, server không biết ngay — phải mất hàng chục giây
+    // mới phát hiện, trong lúc đó người đó vẫn bị coi là "đang online". Nếu chỉ dựa vào tên +
+    // trạng thái online thì lần vào lại sẽ bị từ chối là "trùng tên", người chơi kẹt luôn ở màn
+    // hình cũ, bấm gì cũng không được — đúng lỗi "vào được mà không chơi được".
+    // Có clientId thì dù server còn tưởng họ online, ta vẫn biết đây là chính chủ và trả lại ghế.
+    const rejoining = (clientId && room.players.find(p => p.clientId && p.clientId === clientId))
+      || room.players.find(p => p.name === cleanName && !p.connected);
+    if (rejoining) {
       // nếu người vào lại đúng là chủ phòng (khớp socketId cũ), phải chuyển quyền chủ phòng sang
       // socket mới — không thì họ vào lại phòng nhưng mất hết quyền bấm bắt đầu ván/đổi mức cược.
-      if (room.hostSocketId === existingDisconnected.socketId) room.hostSocketId = socket.id;
-      existingDisconnected.socketId = socket.id;
-      existingDisconnected.connected = true;
+      if (room.hostSocketId === rejoining.socketId) room.hostSocketId = socket.id;
+      rejoining.socketId = socket.id;
+      rejoining.connected = true;
+      if (clientId) rejoining.clientId = clientId;
       socket.join(code);
       socket.data.roomCode = code;
-      cb && cb({ ok: true, roomCode: code, seat: existingDisconnected.seat });
+      cb && cb({ ok: true, roomCode: code, seat: rejoining.seat });
       broadcastRoom(room);
       if (room.phase === 'playing' || room.phase === 'baosam' || room.phase === 'roundend') {
         const src = room.round ? room.round.hands : room.hands;
-        io.to(socket.id).emit('your_hand', { cards: cardsToWire((src && src[existingDisconnected.seat]) || []) });
+        io.to(socket.id).emit('your_hand', { cards: cardsToWire((src && src[rejoining.seat]) || []) });
         if (room.round) broadcastGameState(room);
       }
       if (room.phase === 'baosam' && room.baoSamInfo) io.to(socket.id).emit('bao_sam_result', room.baoSamInfo);
@@ -215,7 +224,7 @@ io.on('connection', socket => {
     if (room.players.length >= 5) return cb && cb({ ok: false, error: 'Phòng đã đủ 5 người.' });
 
     const seat = room.players.length;
-    room.players.push({ socketId: socket.id, name: (cleanName || `Người chơi ${seat + 1}`).slice(0, 20), seat, connected: true, ledger: 0 });
+    room.players.push({ socketId: socket.id, clientId: clientId || null, name: (cleanName || `Người chơi ${seat + 1}`).slice(0, 20), seat, connected: true, ledger: 0 });
     socket.join(code);
     socket.data.roomCode = code;
     cb && cb({ ok: true, roomCode: code, seat });
