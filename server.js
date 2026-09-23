@@ -170,14 +170,26 @@ io.on('connection', socket => {
     broadcastRoom(room);
   });
 
-  socket.on('join_room', ({ roomCode, name }, cb) => {
+  socket.on('join_room', ({ roomCode, name, fromLink }, cb) => {
     const code = (roomCode || '').toUpperCase().trim();
     const cleanName = (name || '').trim();
-    const room = rooms.get(code);
-    if (!room) return cb && cb({ ok: false, error: 'Không tìm thấy phòng.' });
+    let room = rooms.get(code);
+
+    // Phòng chỉ nằm trong bộ nhớ server. Gói free của Render cho server "ngủ" khi không ai dùng
+    // và khởi động lại là mất sạch phòng -> bạn bè bấm link cũ sẽ không vào được, mỗi người lại
+    // đi tạo một phòng riêng nên không nhìn thấy nhau. Vì vậy: nếu vào bằng LINK mà phòng không
+    // còn, dựng lại đúng phòng mã đó luôn -> cả nhóm cùng link vẫn gặp nhau trong một phòng.
+    if (!room && fromLink && /^[A-Z0-9]{4,6}$/.test(code)) {
+      room = newRoom(code, socket.id);
+      rooms.set(code, room);
+    }
+    if (!room) return cb && cb({ ok: false, error: 'Không tìm thấy phòng — kiểm tra lại mã phòng nhé.' });
 
     const existingDisconnected = room.players.find(p => p.name === cleanName && !p.connected);
     if (existingDisconnected) {
+      // nếu người vào lại đúng là chủ phòng (khớp socketId cũ), phải chuyển quyền chủ phòng sang
+      // socket mới — không thì họ vào lại phòng nhưng mất hết quyền bấm bắt đầu ván/đổi mức cược.
+      if (room.hostSocketId === existingDisconnected.socketId) room.hostSocketId = socket.id;
       existingDisconnected.socketId = socket.id;
       existingDisconnected.connected = true;
       socket.join(code);
@@ -221,7 +233,8 @@ io.on('connection', socket => {
 
   socket.on('start_round', () => {
     const room = rooms.get(socket.data.roomCode);
-    if (!room || socket.id !== room.hostSocketId) return;
+    if (!room) return io.to(socket.id).emit('error_msg', { message: 'Mất kết nối phòng — tải lại trang và vào lại nhé.' });
+    if (socket.id !== room.hostSocketId) return;
     if (room.players.length < 2 || room.players.length > 5) {
       return io.to(socket.id).emit('error_msg', { message: 'Cần 2-5 người chơi để bắt đầu.' });
     }
@@ -231,9 +244,10 @@ io.on('connection', socket => {
 
   socket.on('play_cards', ({ cardCodes }) => {
     const room = rooms.get(socket.data.roomCode);
-    if (!room || room.phase !== 'playing' || !room.round) return;
+    if (!room) return io.to(socket.id).emit('error_msg', { message: 'Mất kết nối phòng — tải lại trang và vào lại nhé.' });
+    if (room.phase !== 'playing' || !room.round) return;
     const seat = seatOf(room, socket.id);
-    if (seat === -1) return;
+    if (seat === -1) return io.to(socket.id).emit('error_msg', { message: 'Không xác định được chỗ ngồi của bạn — tải lại trang và vào lại nhé.' });
     const res = room.round.play(seat, cardCodes || []);
     if (!res.ok) return io.to(socket.id).emit('error_msg', { message: errMsg(res.error) });
     sendHands(room);
@@ -260,9 +274,10 @@ io.on('connection', socket => {
 
   socket.on('pass_turn', () => {
     const room = rooms.get(socket.data.roomCode);
-    if (!room || room.phase !== 'playing' || !room.round) return;
+    if (!room) return io.to(socket.id).emit('error_msg', { message: 'Mất kết nối phòng — tải lại trang và vào lại nhé.' });
+    if (room.phase !== 'playing' || !room.round) return;
     const seat = seatOf(room, socket.id);
-    if (seat === -1) return;
+    if (seat === -1) return io.to(socket.id).emit('error_msg', { message: 'Không xác định được chỗ ngồi của bạn — tải lại trang và vào lại nhé.' });
     const res = room.round.pass(seat);
     if (!res.ok) return io.to(socket.id).emit('error_msg', { message: errMsg(res.error) });
     broadcastGameState(room);
